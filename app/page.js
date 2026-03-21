@@ -12,18 +12,11 @@ const MONEDAS = [
   { simbolo: 'XRP', nombre: 'Ripple' },
 ];
 
-function getColor(senal) {
-  if (!senal) return '#64748b';
-  if (senal.includes('COMPRAR')) return '#22c55e';
-  if (senal.includes('VENDER')) return '#ef4444';
+function getColor(accion) {
+  if (!accion) return '#64748b';
+  if (accion === 'COMPRAR') return '#22c55e';
+  if (accion === 'VENDER') return '#ef4444';
   return '#eab308';
-}
-
-function getBadge(senal) {
-  if (!senal) return 'SIN ANALIZAR';
-  if (senal.includes('COMPRAR')) return 'COMPRAR';
-  if (senal.includes('VENDER')) return 'VENDER';
-  return 'ESPERAR';
 }
 
 export default function Home() {
@@ -122,7 +115,7 @@ export default function Home() {
 
         <div style={{ background: '#1e293b', borderRadius: '12px', border: '0.5px solid #334155', marginBottom: '24px', overflow: 'hidden' }}>
           <div style={{ padding: '16px 20px', borderBottom: '0.5px solid #334155' }}>
-            <h2 style={{ color: '#fff', fontSize: '16px', fontWeight: '500', margin: 0 }}>Tabla de mercado — Precios reales</h2>
+            <h2 style={{ color: '#fff', fontSize: '16px', fontWeight: '500', margin: 0 }}>Tabla de mercado</h2>
           </div>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
@@ -149,9 +142,13 @@ export default function Home() {
                       {m.volumen.toLocaleString()}
                     </td>
                     <td style={{ padding: '14px 20px' }}>
-                      <span style={{ background: getColor(sig?.signal || '') + '22', color: getColor(sig?.signal || ''), padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '600' }}>
-                        {getBadge(sig?.signal || '')}
-                      </span>
+                      {sig ? (
+                        <span style={{ background: getColor(sig.accion) + '22', color: getColor(sig.accion), padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '600' }}>
+                          {sig.accion}
+                        </span>
+                      ) : (
+                        <span style={{ color: '#64748b', fontSize: '12px' }}>Sin analizar</span>
+                      )}
                     </td>
                   </tr>
                 );
@@ -161,29 +158,50 @@ export default function Home() {
         </div>
 
         {senales.length > 0 && (
-          <div style={{ background: '#1e293b', borderRadius: '12px', border: '0.5px solid #334155', overflow: 'hidden' }}>
-            <div style={{ padding: '16px 20px', borderBottom: '0.5px solid #334155' }}>
-              <h2 style={{ color: '#fff', fontSize: '16px', fontWeight: '500', margin: 0 }}>Análisis detallado por IA</h2>
-            </div>
-            <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {senales.map(sig => (
-                <div key={sig.symbol} style={{ background: '#0f172a', borderRadius: '10px', padding: '16px', border: `0.5px solid ${getColor(sig.signal)}44` }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <span style={{ color: '#fff', fontWeight: '600' }}>{sig.symbol}</span>
-                    <span style={{ background: getColor(sig.signal) + '22', color: getColor(sig.signal), padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
-                      {getBadge(sig.signal)}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+            <h2 style={{ color: '#fff', fontSize: '16px', fontWeight: '500', margin: 0 }}>Guía de operaciones — Qué poner en Binance</h2>
+            {senales.map(sig => (
+              <div key={sig.symbol} style={{ background: '#1e293b', borderRadius: '12px', border: `1px solid ${getColor(sig.accion)}44`, overflow: 'hidden' }}>
+                <div style={{ padding: '16px 20px', borderBottom: `1px solid ${getColor(sig.accion)}33`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ color: '#fff', fontWeight: '600', fontSize: '16px' }}>{sig.symbol}/USDT</span>
+                    <span style={{ background: getColor(sig.accion) + '22', color: getColor(sig.accion), padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
+                      {sig.accion}
                     </span>
                   </div>
-                  <p style={{ color: '#94a3b8', fontSize: '14px', lineHeight: '1.6', margin: 0 }}>{sig.signal}</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ color: '#64748b', fontSize: '12px' }}>Confianza:</span>
+                    <span style={{ color: sig.confianza >= 70 ? '#22c55e' : sig.confianza >= 50 ? '#eab308' : '#ef4444', fontWeight: '600', fontSize: '14px' }}>{sig.confianza}%</span>
+                  </div>
                 </div>
-              ))}
-            </div>
+                <div style={{ padding: '16px 20px' }}>
+                  <p style={{ color: '#94a3b8', fontSize: '14px', lineHeight: '1.6', margin: '0 0 16px' }}>{sig.razon}</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                    <div style={{ background: '#0f172a', borderRadius: '10px', padding: '14px', border: '0.5px solid #1d4ed8' }}>
+                      <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '6px' }}>PRECIO LÍMITE (Limit)</div>
+                      <div style={{ color: '#60a5fa', fontSize: '18px', fontWeight: '600' }}>${sig.precio_entrada?.toLocaleString()}</div>
+                      <div style={{ color: '#64748b', fontSize: '11px', marginTop: '4px' }}>Pon este valor en "Precio (USDT)"</div>
+                    </div>
+                    <div style={{ background: '#0f172a', borderRadius: '10px', padding: '14px', border: '0.5px solid #22c55e' }}>
+                      <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '6px' }}>TAKE PROFIT (TP) ✅</div>
+                      <div style={{ color: '#22c55e', fontSize: '18px', fontWeight: '600' }}>${sig.take_profit?.toLocaleString()}</div>
+                      <div style={{ color: '#64748b', fontSize: '11px', marginTop: '4px' }}>Aquí vendes para asegurar ganancia</div>
+                    </div>
+                    <div style={{ background: '#0f172a', borderRadius: '10px', padding: '14px', border: '0.5px solid #ef4444' }}>
+                      <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '6px' }}>STOP LOSS (SL) 🛑</div>
+                      <div style={{ color: '#ef4444', fontSize: '18px', fontWeight: '600' }}>${sig.stop_loss?.toLocaleString()}</div>
+                      <div style={{ color: '#64748b', fontSize: '11px', marginTop: '4px' }}>Sal aquí para no perder más</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
         {!senales.length && !cargando && (
           <div style={{ textAlign: 'center', padding: '40px', color: '#64748b', background: '#1e293b', borderRadius: '12px', border: '0.5px solid #334155' }}>
-            Presiona <strong style={{ color: '#fff' }}>"Analizar con IA"</strong> para obtener señales detalladas de cada moneda
+            Presiona <strong style={{ color: '#fff' }}>"Analizar con IA"</strong> para ver exactamente qué valores poner en Binance
           </div>
         )}
 

@@ -14,8 +14,8 @@ const MONEDAS = [
 
 export default function Home() {
   const [datos, setDatos] = useState([]);
-  const [senales, setSenales] = useState([]);
-  const [cargando, setCargando] = useState(false);
+  const [senales, setSenales] = useState({});
+  const [cargando, setCargando] = useState(null);
   const [ultimaActualizacion, setUltimaActualizacion] = useState('');
   const [monedaSeleccionada, setMonedaSeleccionada] = useState('BTC');
 
@@ -43,34 +43,32 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  const analizarMercado = async () => {
-    setCargando(true);
+  const analizarMoneda = async (simbolo) => {
+    setCargando(simbolo);
     try {
-      const res = await fetch('/api/signals');
+      const res = await fetch(`/api/signals?symbol=${simbolo}`);
       const data = await res.json();
-      setSenales(data.signals || []);
+      setSenales(prev => ({ ...prev, [simbolo]: data }));
     } catch (e) {
       console.error(e);
     }
-    setCargando(false);
+    setCargando(null);
   };
+
+  const sig = senales[monedaSeleccionada];
 
   return (
     <main style={{ background: '#0b1120', minHeight: '100vh', padding: '20px', fontFamily: 'sans-serif' }}>
       <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
 
-        {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <div>
             <h1 style={{ color: '#fff', fontSize: '22px', fontWeight: '600', margin: 0 }}>Señales Cripto IA</h1>
-            <p style={{ color: '#64748b', fontSize: '13px', margin: '4px 0 0' }}>Precios reales de Binance · Actualizado {ultimaActualizacion}</p>
+            <p style={{ color: '#64748b', fontSize: '13px', margin: '4px 0 0' }}>Precios reales de Binance · {ultimaActualizacion}</p>
           </div>
-          <button onClick={analizarMercado} disabled={cargando} style={{ background: cargando ? '#1e3a5f' : '#1d4ed8', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' }}>
-            {cargando ? 'Analizando...' : '⚡ Analizar con IA'}
-          </button>
         </div>
 
-        {/* Tarjetas precios */}
+        {/* Tarjetas monedas */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '24px' }}>
           {datos.map(m => (
             <div key={m.simbolo} onClick={() => setMonedaSeleccionada(m.simbolo)} style={{ background: monedaSeleccionada === m.simbolo ? '#1d4ed8' : '#1e293b', borderRadius: '12px', padding: '16px', border: monedaSeleccionada === m.simbolo ? '0.5px solid #3b82f6' : '0.5px solid #334155', cursor: 'pointer' }}>
@@ -100,70 +98,82 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Señales estilo Telegram */}
-        {senales.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <h2 style={{ color: '#fff', fontSize: '16px', fontWeight: '500', margin: 0 }}>⚡ Señales generadas por IA</h2>
-            {senales.map(sig => (
-              <div key={sig.symbol} style={{ background: '#1e293b', borderRadius: '12px', border: `1px solid ${sig.operacion === 'LONG' ? '#22c55e33' : '#ef444433'}`, overflow: 'hidden' }}>
-                <div style={{ background: sig.operacion === 'LONG' ? '#052e16' : '#2d0a0a', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: '18px' }}>{sig.operacion === 'LONG' ? '🟢' : '🔴'}</span>
-                    <div>
-                      <span style={{ color: '#fff', fontWeight: '600', fontSize: '16px' }}>SEÑAL {sig.operacion}</span>
-                      <span style={{ color: '#64748b', fontSize: '13px', marginLeft: '8px' }}>#{sig.symbol}USDT</span>
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ color: '#64748b', fontSize: '11px' }}>Confianza</div>
-                    <div style={{ color: sig.confianza >= 70 ? '#22c55e' : '#eab308', fontWeight: '600' }}>{sig.confianza}%</div>
-                  </div>
-                </div>
-                <div style={{ padding: '16px 20px' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '14px' }}>
-                    <div style={{ background: '#0f172a', borderRadius: '8px', padding: '10px 14px' }}>
-                      <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '3px' }}>🕐 TEMPORALIDAD</div>
-                      <div style={{ color: '#fff', fontWeight: '600' }}>{sig.temporalidad}</div>
-                    </div>
-                    <div style={{ background: '#0f172a', borderRadius: '8px', padding: '10px 14px' }}>
-                      <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '3px' }}>💪 APALANCAMIENTO</div>
-                      <div style={{ color: '#fff', fontWeight: '600' }}>{sig.apalancamiento}</div>
-                    </div>
-                    <div style={{ background: '#0f172a', borderRadius: '8px', padding: '10px 14px' }}>
-                      <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '3px' }}>💰 PRECIO ENTRADA</div>
-                      <div style={{ color: '#60a5fa', fontWeight: '600' }}>${sig.precio_entrada?.toLocaleString()}</div>
-                    </div>
-                    <div style={{ background: '#0f172a', borderRadius: '8px', padding: '10px 14px' }}>
-                      <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '3px' }}>☠️ RIESGO LIQUIDACIÓN</div>
-                      <div style={{ color: sig.riesgo_liquidacion > 50 ? '#ef4444' : '#eab308', fontWeight: '600' }}>{sig.riesgo_liquidacion}%</div>
-                    </div>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '14px' }}>
-                    <div style={{ background: '#052e16', borderRadius: '8px', padding: '10px 14px', border: '0.5px solid #22c55e44' }}>
-                      <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '3px' }}>✅ TAKE PROFIT</div>
-                      <div style={{ color: '#22c55e', fontWeight: '600', fontSize: '16px' }}>${sig.take_profit?.toLocaleString()}</div>
-                      <div style={{ color: '#64748b', fontSize: '11px', marginTop: '2px' }}>Vende aquí para ganar</div>
-                    </div>
-                    <div style={{ background: '#2d0a0a', borderRadius: '8px', padding: '10px 14px', border: '0.5px solid #ef444444' }}>
-                      <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '3px' }}>🛑 STOP LOSS</div>
-                      <div style={{ color: '#ef4444', fontWeight: '600', fontSize: '16px' }}>${sig.stop_loss?.toLocaleString()}</div>
-                      <div style={{ color: '#64748b', fontSize: '11px', marginTop: '2px' }}>Sal aquí para no perder</div>
-                    </div>
-                  </div>
-                  <div style={{ background: '#0f172a', borderRadius: '8px', padding: '10px 14px', borderLeft: '3px solid #1d4ed8' }}>
-                    <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '4px' }}>⚠️ ANÁLISIS IA</div>
-                    <p style={{ color: '#94a3b8', fontSize: '13px', margin: 0, lineHeight: '1.5' }}>{sig.razon}</p>
-                  </div>
-                  <div style={{ marginTop: '12px', padding: '8px 14px', background: '#0f172a', borderRadius: '8px', fontSize: '11px', color: '#64748b', textAlign: 'center' }}>
-                    ⚠️ Esto es análisis educativo, no asesoría financiera. Opera siempre con gestión de riesgo.
-                  </div>
+        {/* Botón analizar moneda seleccionada */}
+        <div style={{ marginBottom: '24px', textAlign: 'center' }}>
+          <button
+            onClick={() => analizarMoneda(monedaSeleccionada)}
+            disabled={cargando === monedaSeleccionada}
+            style={{ background: cargando === monedaSeleccionada ? '#1e3a5f' : '#1d4ed8', color: '#fff', border: 'none', padding: '14px 32px', borderRadius: '10px', cursor: 'pointer', fontSize: '16px', fontWeight: '600' }}
+          >
+            {cargando === monedaSeleccionada ? '⏳ Analizando...' : `⚡ Analizar ${monedaSeleccionada} con IA`}
+          </button>
+        </div>
+
+        {/* Señal generada */}
+        {sig ? (
+          <div style={{ background: '#1e293b', borderRadius: '12px', border: `1px solid ${sig.operacion === 'LONG' ? '#22c55e44' : '#ef444444'}`, overflow: 'hidden', marginBottom: '24px' }}>
+            <div style={{ background: sig.operacion === 'LONG' ? '#052e16' : '#2d0a0a', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '20px' }}>{sig.operacion === 'LONG' ? '🟢' : '🔴'}</span>
+                <div>
+                  <div style={{ color: '#fff', fontWeight: '600', fontSize: '18px' }}>OPERACIÓN: {sig.operacion}</div>
+                  <div style={{ color: '#64748b', fontSize: '13px' }}>ACTIVO: {sig.symbol}USDT</div>
                 </div>
               </div>
-            ))}
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ color: '#64748b', fontSize: '11px' }}>Confianza IA</div>
+                <div style={{ color: sig.confianza >= 70 ? '#22c55e' : '#eab308', fontWeight: '700', fontSize: '20px' }}>{sig.confianza}%</div>
+              </div>
+            </div>
+
+            <div style={{ padding: '20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
+                <div style={{ background: '#0f172a', borderRadius: '10px', padding: '14px' }}>
+                  <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '4px' }}>🕐 TEMPORALIDAD</div>
+                  <div style={{ color: '#fff', fontWeight: '600', fontSize: '16px' }}>{sig.temporalidad}</div>
+                </div>
+                <div style={{ background: '#0f172a', borderRadius: '10px', padding: '14px' }}>
+                  <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '4px' }}>💪 APALANCAMIENTO</div>
+                  <div style={{ color: '#fff', fontWeight: '600', fontSize: '16px' }}>{sig.apalancamiento}</div>
+                </div>
+              </div>
+
+              <div style={{ background: '#0f172a', borderRadius: '10px', padding: '14px', marginBottom: '16px', border: '0.5px solid #1d4ed8' }}>
+                <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '4px' }}>💰 PRECIO DE ENTRADA (pon esto en Binance)</div>
+                <div style={{ color: '#60a5fa', fontWeight: '700', fontSize: '22px' }}>${sig.precio_entrada?.toLocaleString()}</div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
+                <div style={{ background: '#052e16', borderRadius: '10px', padding: '14px', border: '0.5px solid #22c55e44' }}>
+                  <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '4px' }}>✅ TAKE PROFIT — Vende aquí para ganar</div>
+                  <div style={{ color: '#22c55e', fontWeight: '700', fontSize: '20px' }}>${sig.take_profit?.toLocaleString()}</div>
+                  <div style={{ color: '#64748b', fontSize: '11px', marginTop: '4px' }}>Pon este valor en el campo TP de Binance</div>
+                </div>
+                <div style={{ background: '#2d0a0a', borderRadius: '10px', padding: '14px', border: '0.5px solid #ef444444' }}>
+                  <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '4px' }}>🛑 STOP LOSS — Sal aquí para no perder</div>
+                  <div style={{ color: '#ef4444', fontWeight: '700', fontSize: '20px' }}>${sig.stop_loss?.toLocaleString()}</div>
+                  <div style={{ color: '#64748b', fontSize: '11px', marginTop: '4px' }}>Pon este valor en el campo SL de Binance</div>
+                </div>
+              </div>
+
+              <div style={{ background: '#0f172a', borderRadius: '10px', padding: '14px', marginBottom: '16px', border: `0.5px solid ${sig.riesgo_liquidacion > 50 ? '#ef4444' : '#eab308'}44` }}>
+                <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '4px' }}>☠️ RIESGO DE LIQUIDACIÓN</div>
+                <div style={{ color: sig.riesgo_liquidacion > 50 ? '#ef4444' : '#eab308', fontWeight: '700', fontSize: '20px' }}>{sig.riesgo_liquidacion}%</div>
+              </div>
+
+              <div style={{ background: '#0f172a', borderRadius: '10px', padding: '14px', borderLeft: '3px solid #1d4ed8', marginBottom: '16px' }}>
+                <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '6px' }}>⚡ ANÁLISIS DE LA IA</div>
+                <p style={{ color: '#94a3b8', fontSize: '14px', margin: 0, lineHeight: '1.6' }}>{sig.razon}</p>
+              </div>
+
+              <div style={{ background: '#1c1a04', borderRadius: '10px', padding: '12px 14px', fontSize: '12px', color: '#eab308', textAlign: 'center' }}>
+                ⚠️ Esto es análisis educativo, no asesoría financiera. Opera siempre con gestión de riesgo.
+              </div>
+            </div>
           </div>
         ) : (
           <div style={{ textAlign: 'center', padding: '40px', color: '#64748b', background: '#1e293b', borderRadius: '12px', border: '0.5px solid #334155' }}>
-            Presiona <strong style={{ color: '#fff' }}>"⚡ Analizar con IA"</strong> para generar señales de trading
+            Selecciona una moneda arriba y presiona <strong style={{ color: '#fff' }}>"⚡ Analizar con IA"</strong>
           </div>
         )}
 

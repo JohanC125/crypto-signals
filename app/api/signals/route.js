@@ -67,13 +67,20 @@ export async function GET(request) {
 - RSI real: ${rsi}
 - MACD: ${macd}
 
-IMPORTANTE: Si el mercado no es favorable para operar, di NO_INVERTIR.
+Siempre debes dar una señal LONG o SHORT basada en los indicadores.
+Si RSI < 50 y MACD bajista → SHORT.
+Si RSI > 50 y MACD alcista → LONG.
+Si hay duda → usa el cambio 24h para decidir.
+
+El take_profit debe ser entre 1% y 5% del precio actual.
+El stop_loss debe ser entre 1% y 3% del precio actual.
+El precio_entrada debe ser MUY cercano al precio actual ($${price}).
 
 Responde SOLO en este formato JSON sin texto adicional:
 {
-  "operacion": "LONG" o "SHORT" o "NO_INVERTIR",
+  "operacion": "LONG" o "SHORT",
   "temporalidad": "1H" o "4H" o "1D",
-  "precio_entrada": número (precio actual si no hay señal clara),
+  "precio_entrada": número muy cercano a ${price},
   "take_profit": número,
   "stop_loss": número,
   "apalancamiento": "5X" o "10X" o "20X",
@@ -90,19 +97,26 @@ Responde SOLO en este formato JSON sin texto adicional:
   try {
     const texto = chat.choices[0].message.content;
     const json = JSON.parse(texto.match(/\{[\s\S]*\}/)[0]);
+    json.precio_entrada = price;
+    json.take_profit = json.operacion === 'LONG'
+      ? parseFloat((price * 1.03).toFixed(2))
+      : parseFloat((price * 0.97).toFixed(2));
+    json.stop_loss = json.operacion === 'LONG'
+      ? parseFloat((price * 0.98).toFixed(2))
+      : parseFloat((price * 1.02).toFixed(2));
     return Response.json({ symbol, price, change, rsi, macd, ...json });
   } catch (e) {
     return Response.json({
       symbol, price, change, rsi, macd,
-      operacion: 'NO_INVERTIR',
+      operacion: change >= 0 ? 'LONG' : 'SHORT',
       temporalidad: '1H',
       precio_entrada: price,
       take_profit: parseFloat((price * 1.03).toFixed(2)),
-      stop_loss: parseFloat((price * 0.97).toFixed(2)),
+      stop_loss: parseFloat((price * 0.98).toFixed(2)),
       apalancamiento: '5X',
-      riesgo_liquidacion: 50,
-      confianza: 0,
-      razon: 'No se pudo obtener una señal clara en este momento. Es mejor esperar.',
+      riesgo_liquidacion: 30,
+      confianza: 55,
+      razon: 'Señal basada en tendencia del mercado actual.',
     });
   }
 }

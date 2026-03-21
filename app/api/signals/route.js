@@ -4,15 +4,49 @@ import Groq from "groq-sdk";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
+async function getPrecio(symbol) {
+  const urls = [
+    `https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}USDT`,
+    `https://api.binance.us/api/v3/ticker/24hr?symbol=${symbol}USDT`,
+  ];
+  
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      const data = await res.json();
+      if (data.lastPrice && parseFloat(data.lastPrice) > 0) {
+        return {
+          price: parseFloat(parseFloat(data.lastPrice).toFixed(2)),
+          change: parseFloat(parseFloat(data.priceChangePercent).toFixed(2)),
+        };
+      }
+    } catch (e) { continue; }
+  }
+
+  // Si Binance falla usar CoinGecko
+  try {
+    const ids = { BTC: 'bitcoin', ETH: 'ethereum', SOL: 'solana', BNB: 'binancecoin', XRP: 'ripple' };
+    const id = ids[symbol];
+    const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd&include_24hr_change=true`);
+    const data = await res.json();
+    return {
+      price: parseFloat(data[id].usd.toFixed(2)),
+      change: parseFloat(data[id].usd_24h_change.toFixed(2)),
+    };
+  } catch (e) {
+    return { price: 0, change: 0 };
+  }
+}
+
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const symbol = searchParams.get('symbol') || 'BTC';
 
-  const tickerRes = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}USDT`);
-  const ticker = await tickerRes.json();
+  const { price, change } = await getPrecio(symbol);
 
-  const price = parseFloat(parseFloat(ticker.lastPrice).toFixed(2));
-  const change = parseFloat(parseFloat(ticker.priceChangePercent).toFixed(2));
+  if (!price || price === 0) {
+    return Response.json({ error: 'No se pudo obtener el precio' }, { status: 500 });
+  }
 
   const operacion = change >= 0 ? 'LONG' : 'SHORT';
   const take_profit = operacion === 'LONG'
@@ -26,7 +60,7 @@ export async function GET(request) {
     const chat = await groq.chat.completions.create({
       messages: [{
         role: "user",
-        content: `En 1 oración explica por qué ${symbol} con cambio de ${change}% en 24h es ${operacion}. Responde solo JSON: {"confianza":75,"riesgo_liquidacion":30,"razon":"texto corto"}`,
+        content: `En 1 oración explica por qué ${symbol} con precio $${price} y cambio de ${change}% en 24h sugiere ${operacion}. Solo devuelve JSON: {"confianza":75,"riesgo_liquidacion":30,"razon":"texto"}`,
       }],
       model: "llama-3.1-8b-instant",
       max_tokens: 80,

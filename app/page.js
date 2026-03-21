@@ -59,12 +59,24 @@ export default function Home() {
     <div style={{ background: '#0b0e11', minHeight: '100vh', fontFamily: 'sans-serif', display: 'flex', flexDirection: 'column' }}>
 
       {/* Navbar */}
-      <div style={{ background: '#161a1e', borderBottom: '1px solid #2b2f36', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '56px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '28px', height: '28px', background: '#F3BA2F', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '14px', color: '#000' }}>S</div>
-          <span style={{ color: '#fff', fontWeight: '600', fontSize: '16px' }}>SignalAI</span>
+      <div style={{ background: '#161a1e', borderBottom: '1px solid #2b2f36', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '60px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* Logo */}
+          <div style={{ position: 'relative', width: '42px', height: '42px' }}>
+            <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'linear-gradient(135deg, #6D28D9 0%, #A855F7 50%, #7C3AED 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 16px #A855F766' }}>
+              <span style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic', fontWeight: '700', fontSize: '16px', color: '#fff', letterSpacing: '-1px' }}>JC</span>
+            </div>
+            <div style={{ position: 'absolute', top: '-2px', right: '-2px', width: '10px', height: '10px', background: '#0ecb81', borderRadius: '50%', border: '2px solid #161a1e' }}></div>
+          </div>
+          <div>
+            <div style={{ color: '#fff', fontWeight: '700', fontSize: '16px', letterSpacing: '0.5px' }}>JACJ <span style={{ color: '#A855F7' }}>Signals</span></div>
+            <div style={{ color: '#6D28D9', fontSize: '10px', letterSpacing: '1.5px', textTransform: 'uppercase' }}>by Johan Caro</div>
+          </div>
         </div>
-        <span style={{ color: '#848e9c', fontSize: '12px' }}>● EN VIVO · {ultimaActualizacion}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ width: '8px', height: '8px', background: '#0ecb81', borderRadius: '50%' }}></div>
+          <span style={{ color: '#848e9c', fontSize: '12px' }}>EN VIVO · {ultimaActualizacion}</span>
+        </div>
       </div>
 
       {/* Barra monedas */}
@@ -110,32 +122,29 @@ export default function Home() {
         {/* Derecha */}
         <div style={{ background: '#161a1e', display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
 
-          {/* Header derecha */}
           <div style={{ padding: '16px', borderBottom: '1px solid #2b2f36', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ color: '#fff', fontWeight: '600', fontSize: '14px' }}>⚡ Señal IA</span>
             <button
               onClick={() => analizarMoneda(monedaSeleccionada)}
               disabled={cargando === monedaSeleccionada}
-              style={{ background: cargando === monedaSeleccionada ? '#2b2f36' : '#F3BA2F', color: '#000', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '700' }}
+              style={{ background: cargando === monedaSeleccionada ? '#2b2f36' : 'linear-gradient(135deg, #6D28D9, #A855F7)', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '700', boxShadow: cargando === monedaSeleccionada ? 'none' : '0 0 12px #A855F744' }}
             >
               {cargando === monedaSeleccionada ? '⏳ Analizando...' : `Analizar ${monedaSeleccionada}`}
             </button>
           </div>
 
-          {/* Formulario Binance Spot siempre visible */}
+          {/* Formulario Binance Spot */}
           <div style={{ padding: '16px', borderBottom: '1px solid #2b2f36' }}>
-            <div style={{ color: '#848e9c', fontSize: '11px', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>📋 Campos para Binance Spot</div>
+            <div style={{ color: '#A855F7', fontSize: '11px', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: '600' }}>📋 Campos para Binance Spot</div>
 
-            {/* Tipo orden */}
             <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
               <div style={{ flex: 1, background: '#0ecb8122', border: '1px solid #0ecb81', borderRadius: '6px', padding: '8px', textAlign: 'center', color: '#0ecb81', fontWeight: '600', fontSize: '13px' }}>Comprar</div>
               <div style={{ flex: 1, background: '#2b2f36', border: '1px solid #2b2f36', borderRadius: '6px', padding: '8px', textAlign: 'center', color: '#848e9c', fontSize: '13px' }}>Vender</div>
             </div>
 
-            {/* Campo Precio */}
             <div style={{ marginBottom: '10px' }}>
               <div style={{ color: '#848e9c', fontSize: '11px', marginBottom: '4px' }}>Precio (USDT)</div>
-              <div style={{ background: '#0b0e11', border: '1px solid #2b2f36', borderRadius: '6px', padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ background: '#0b0e11', border: `1px solid ${sig ? '#3b82f6' : '#2b2f36'}`, borderRadius: '6px', padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ color: sig ? '#3b82f6' : '#848e9c', fontWeight: '600', fontSize: '15px' }}>
                   {sig ? sig.precio_entrada?.toLocaleString() : '— Analiza primero'}
                 </span>
@@ -143,7 +152,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Campo Monto */}
             <div style={{ marginBottom: '10px' }}>
               <div style={{ color: '#848e9c', fontSize: '11px', marginBottom: '4px' }}>Monto ({monedaSeleccionada})</div>
               <div style={{ background: '#0b0e11', border: '1px solid #2b2f36', borderRadius: '6px', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
@@ -163,10 +171,9 @@ export default function Home() {
               )}
             </div>
 
-            {/* TP */}
             <div style={{ marginBottom: '10px' }}>
               <div style={{ color: '#848e9c', fontSize: '11px', marginBottom: '4px' }}>✅ Take Profit (TP)</div>
-              <div style={{ background: '#0d2e1f', border: '1px solid #0ecb8144', borderRadius: '6px', padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ background: '#0d2e1f', border: `1px solid ${sig ? '#0ecb8166' : '#2b2f36'}`, borderRadius: '6px', padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ color: sig ? '#0ecb81' : '#848e9c', fontWeight: '600', fontSize: '15px' }}>
                   {sig ? sig.take_profit?.toLocaleString() : '—'}
                 </span>
@@ -175,10 +182,9 @@ export default function Home() {
               <div style={{ color: '#848e9c', fontSize: '10px', marginTop: '3px' }}>Vende aquí para asegurar ganancias</div>
             </div>
 
-            {/* SL */}
-            <div style={{ marginBottom: '10px' }}>
+            <div style={{ marginBottom: '12px' }}>
               <div style={{ color: '#848e9c', fontSize: '11px', marginBottom: '4px' }}>🛑 Stop Loss (SL)</div>
-              <div style={{ background: '#2d0f0f', border: '1px solid #f6465d44', borderRadius: '6px', padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ background: '#2d0f0f', border: `1px solid ${sig ? '#f6465d66' : '#2b2f36'}`, borderRadius: '6px', padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ color: sig ? '#f6465d' : '#848e9c', fontWeight: '600', fontSize: '15px' }}>
                   {sig ? sig.stop_loss?.toLocaleString() : '—'}
                 </span>
@@ -187,13 +193,12 @@ export default function Home() {
               <div style={{ color: '#848e9c', fontSize: '10px', marginTop: '3px' }}>Sal aquí para no perder más</div>
             </div>
 
-            {/* Botón comprar */}
-            <button style={{ width: '100%', background: '#0ecb81', color: '#000', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: '700', fontSize: '14px', cursor: 'pointer', marginTop: '4px' }}>
+            <button style={{ width: '100%', background: 'linear-gradient(135deg, #0ecb81, #0aa866)', color: '#000', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: '700', fontSize: '14px', cursor: 'pointer' }}>
               Comprar {monedaSeleccionada}
             </button>
           </div>
 
-          {/* Señal IA abajo */}
+          {/* Señal IA */}
           {sig && (
             <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div style={{ background: sig.operacion === 'LONG' ? '#0d2e1f' : '#2d0f0f', border: `1px solid ${sig.operacion === 'LONG' ? '#0ecb81' : '#f6465d'}`, borderRadius: '10px', padding: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -220,8 +225,8 @@ export default function Home() {
                 </div>
               </div>
 
-              <div style={{ background: '#0b0e11', borderRadius: '8px', padding: '12px', borderLeft: '3px solid #F3BA2F' }}>
-                <div style={{ color: '#848e9c', fontSize: '10px', marginBottom: '4px' }}>⚡ ANÁLISIS IA</div>
+              <div style={{ background: '#0b0e11', borderRadius: '8px', padding: '12px', borderLeft: '3px solid #A855F7' }}>
+                <div style={{ color: '#A855F7', fontSize: '10px', marginBottom: '4px', fontWeight: '600' }}>⚡ ANÁLISIS IA — JACJ Signals</div>
                 <p style={{ color: '#b7bdc6', fontSize: '12px', margin: 0, lineHeight: '1.5' }}>{sig.razon}</p>
               </div>
 

@@ -1,5 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
+
+const Grafico = dynamic(() => import('./components/Grafico'), { ssr: false });
 
 const MONEDAS = [
   { simbolo: 'BTC', nombre: 'Bitcoin' },
@@ -29,6 +32,7 @@ export default function Home() {
   const [cargando, setCargando] = useState(false);
   const [cargandoPrecios, setCargandoPrecios] = useState(true);
   const [ultimaActualizacion, setUltimaActualizacion] = useState('');
+  const [monedaSeleccionada, setMonedaSeleccionada] = useState('BTC');
 
   const fetchPrecios = async () => {
     try {
@@ -75,9 +79,7 @@ export default function Home() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <div>
             <h1 style={{ color: '#fff', fontSize: '22px', fontWeight: '600', margin: 0 }}>Señales Cripto IA</h1>
-            <p style={{ color: '#64748b', fontSize: '13px', margin: '4px 0 0' }}>
-              Precios reales de Binance · Actualizado {ultimaActualizacion}
-            </p>
+            <p style={{ color: '#64748b', fontSize: '13px', margin: '4px 0 0' }}>Precios reales de Binance · Actualizado {ultimaActualizacion}</p>
           </div>
           <button onClick={analizarMercado} disabled={cargando} style={{ background: cargando ? '#1e3a5f' : '#1d4ed8', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' }}>
             {cargando ? 'Analizando...' : 'Analizar con IA'}
@@ -91,7 +93,7 @@ export default function Home() {
             ))
           ) : (
             datos.map(m => (
-              <div key={m.simbolo} style={{ background: '#1e293b', borderRadius: '12px', padding: '16px', border: '0.5px solid #334155' }}>
+              <div key={m.simbolo} onClick={() => setMonedaSeleccionada(m.simbolo)} style={{ background: monedaSeleccionada === m.simbolo ? '#1d4ed8' : '#1e293b', borderRadius: '12px', padding: '16px', border: monedaSeleccionada === m.simbolo ? '0.5px solid #3b82f6' : '0.5px solid #334155', cursor: 'pointer' }}>
                 <div style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '4px' }}>{m.simbolo}</div>
                 <div style={{ color: '#fff', fontSize: '15px', fontWeight: '600', marginBottom: '4px' }}>${m.precio.toLocaleString()}</div>
                 <div style={{ color: m.cambio >= 0 ? '#22c55e' : '#ef4444', fontSize: '12px' }}>
@@ -100,6 +102,22 @@ export default function Home() {
               </div>
             ))
           )}
+        </div>
+
+        <div style={{ background: '#1e293b', borderRadius: '12px', border: '0.5px solid #334155', marginBottom: '24px', overflow: 'hidden' }}>
+          <div style={{ padding: '16px 20px', borderBottom: '0.5px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2 style={{ color: '#fff', fontSize: '16px', fontWeight: '500', margin: 0 }}>Gráfico {monedaSeleccionada}/USDT — 1 hora</h2>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {MONEDAS.map(m => (
+                <button key={m.simbolo} onClick={() => setMonedaSeleccionada(m.simbolo)} style={{ background: monedaSeleccionada === m.simbolo ? '#1d4ed8' : '#0f172a', color: monedaSeleccionada === m.simbolo ? '#fff' : '#64748b', border: '0.5px solid #334155', padding: '4px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>
+                  {m.simbolo}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div style={{ padding: '16px' }}>
+            <Grafico simbolo={monedaSeleccionada} />
+          </div>
         </div>
 
         <div style={{ background: '#1e293b', borderRadius: '12px', border: '0.5px solid #334155', marginBottom: '24px', overflow: 'hidden' }}>
@@ -118,7 +136,7 @@ export default function Home() {
               {datos.map(m => {
                 const sig = senales.find(s => s.symbol === m.simbolo);
                 return (
-                  <tr key={m.simbolo} style={{ borderTop: '0.5px solid #334155' }}>
+                  <tr key={m.simbolo} onClick={() => setMonedaSeleccionada(m.simbolo)} style={{ borderTop: '0.5px solid #334155', cursor: 'pointer' }}>
                     <td style={{ padding: '14px 20px' }}>
                       <div style={{ color: '#fff', fontWeight: '500' }}>{m.simbolo}</div>
                       <div style={{ color: '#64748b', fontSize: '12px' }}>{m.nombre}</div>

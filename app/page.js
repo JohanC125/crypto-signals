@@ -18,6 +18,7 @@ export default function Home() {
   const [cargando, setCargando] = useState(null);
   const [ultimaActualizacion, setUltimaActualizacion] = useState('');
   const [monedaSeleccionada, setMonedaSeleccionada] = useState('BTC');
+  const [monto, setMonto] = useState('');
 
   const fetchPrecios = async () => {
     try {
@@ -68,7 +69,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Tarjetas monedas */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '24px' }}>
           {datos.map(m => (
             <div key={m.simbolo} onClick={() => setMonedaSeleccionada(m.simbolo)} style={{ background: monedaSeleccionada === m.simbolo ? '#1d4ed8' : '#1e293b', borderRadius: '12px', padding: '16px', border: monedaSeleccionada === m.simbolo ? '0.5px solid #3b82f6' : '0.5px solid #334155', cursor: 'pointer' }}>
@@ -81,7 +81,6 @@ export default function Home() {
           ))}
         </div>
 
-        {/* Gráfico */}
         <div style={{ background: '#1e293b', borderRadius: '12px', border: '0.5px solid #334155', marginBottom: '24px', overflow: 'hidden' }}>
           <div style={{ padding: '16px 20px', borderBottom: '0.5px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h2 style={{ color: '#fff', fontSize: '16px', fontWeight: '500', margin: 0 }}>Gráfico {monedaSeleccionada}/USDT</h2>
@@ -98,7 +97,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Botón analizar moneda seleccionada */}
         <div style={{ marginBottom: '24px', textAlign: 'center' }}>
           <button
             onClick={() => analizarMoneda(monedaSeleccionada)}
@@ -109,7 +107,6 @@ export default function Home() {
           </button>
         </div>
 
-        {/* Señal generada */}
         {sig ? (
           <div style={{ background: '#1e293b', borderRadius: '12px', border: `1px solid ${sig.operacion === 'LONG' ? '#22c55e44' : '#ef444444'}`, overflow: 'hidden', marginBottom: '24px' }}>
             <div style={{ background: sig.operacion === 'LONG' ? '#052e16' : '#2d0a0a', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -136,11 +133,38 @@ export default function Home() {
                   <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '4px' }}>💪 APALANCAMIENTO</div>
                   <div style={{ color: '#fff', fontWeight: '600', fontSize: '16px' }}>{sig.apalancamiento}</div>
                 </div>
+                <div style={{ background: '#0f172a', borderRadius: '10px', padding: '14px' }}>
+                  <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '4px' }}>📊 RSI REAL</div>
+                  <div style={{ color: sig.rsi < 30 ? '#22c55e' : sig.rsi > 70 ? '#ef4444' : '#fff', fontWeight: '600', fontSize: '16px' }}>{sig.rsi}</div>
+                </div>
+                <div style={{ background: '#0f172a', borderRadius: '10px', padding: '14px' }}>
+                  <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '4px' }}>📈 MACD</div>
+                  <div style={{ color: sig.macd === 'alcista' ? '#22c55e' : '#ef4444', fontWeight: '600', fontSize: '16px' }}>{sig.macd?.toUpperCase()}</div>
+                </div>
               </div>
 
               <div style={{ background: '#0f172a', borderRadius: '10px', padding: '14px', marginBottom: '16px', border: '0.5px solid #1d4ed8' }}>
-                <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '4px' }}>💰 PRECIO DE ENTRADA (pon esto en Binance)</div>
+                <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '4px' }}>💰 PRECIO DE ENTRADA — Pon esto en el campo "Precio (USDT)" de Binance</div>
                 <div style={{ color: '#60a5fa', fontWeight: '700', fontSize: '22px' }}>${sig.precio_entrada?.toLocaleString()}</div>
+                <div style={{ marginTop: '12px', borderTop: '0.5px solid #1e293b', paddingTop: '12px' }}>
+                  <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '6px' }}>🧮 ¿Cuánto quieres invertir?</div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <span style={{ color: '#64748b', fontSize: '14px' }}>$</span>
+                    <input
+                      type="number"
+                      value={monto}
+                      onChange={e => setMonto(e.target.value)}
+                      placeholder="Ej: 5"
+                      style={{ background: '#1e293b', border: '0.5px solid #334155', borderRadius: '6px', padding: '6px 10px', color: '#fff', fontSize: '14px', width: '100px' }}
+                    />
+                    <span style={{ color: '#64748b', fontSize: '13px' }}>USDT</span>
+                  </div>
+                  {monto && sig.precio_entrada && (
+                    <div style={{ marginTop: '8px', color: '#94a3b8', fontSize: '13px' }}>
+                      → Pon en <strong style={{ color: '#fff' }}>Monto ({sig.symbol})</strong>: <span style={{ color: '#60a5fa', fontWeight: '600' }}>{(parseFloat(monto) / sig.precio_entrada).toFixed(6)}</span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>

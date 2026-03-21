@@ -11,17 +11,10 @@ async function getPrecioReal(symbol) {
       change: parseFloat(parseFloat(data.priceChangePercent).toFixed(2)),
       high: parseFloat(parseFloat(data.highPrice).toFixed(2)),
       low: parseFloat(parseFloat(data.lowPrice).toFixed(2)),
-      volume: parseFloat(parseFloat(data.volume).toFixed(2)),
     };
   } catch (e) {
-    return { price: 0, change: 0, high: 0, low: 0, volume: 0 };
+    return { price: 0, change: 0, high: 0, low: 0 };
   }
-}
-
-function calcularRSI(change) {
-  if (change > 3) return Math.floor(Math.random() * 20 + 70);
-  if (change < -3) return Math.floor(Math.random() * 20 + 10);
-  return Math.floor(Math.random() * 40 + 30);
 }
 
 export async function GET() {
@@ -30,7 +23,7 @@ export async function GET() {
   const coins = await Promise.all(
     symbols.map(async (symbol) => {
       const datos = await getPrecioReal(symbol);
-      return { symbol, ...datos, rsi: calcularRSI(datos.change) };
+      return { symbol, ...datos };
     })
   );
 
@@ -41,26 +34,28 @@ export async function GET() {
       messages: [
         {
           role: "user",
-          content: `Eres un experto en trading de criptomonedas. Analiza ${coin.symbol}/USDT:
+          content: `Eres un experto en trading. Analiza ${coin.symbol}/USDT:
 - Precio actual: $${coin.price}
 - Cambio 24h: ${coin.change}%
 - Máximo 24h: $${coin.high}
 - Mínimo 24h: $${coin.low}
-- RSI: ${coin.rsi}
 
-Responde SOLO en este formato JSON exacto sin explicaciones adicionales:
+Responde SOLO en este formato JSON sin texto adicional:
 {
-  "accion": "COMPRAR" o "VENDER" o "ESPERAR",
-  "razon": "explicación breve en español de máximo 2 oraciones",
-  "precio_entrada": número (precio límite sugerido para comprar),
-  "take_profit": número (precio objetivo para vender y ganar),
-  "stop_loss": número (precio para salir y no perder más),
-  "confianza": número del 1 al 100
+  "operacion": "LONG" o "SHORT",
+  "temporalidad": "1H" o "4H" o "1D",
+  "precio_entrada": número,
+  "take_profit": número,
+  "stop_loss": número,
+  "apalancamiento": "5X" o "10X" o "20X",
+  "riesgo_liquidacion": número del 1 al 100,
+  "confianza": número del 1 al 100,
+  "razon": "explicación breve en español de máximo 2 oraciones"
 }`,
         },
       ],
       model: "llama-3.3-70b-versatile",
-      max_tokens: 200,
+      max_tokens: 250,
     });
 
     try {
@@ -70,7 +65,6 @@ Responde SOLO en este formato JSON exacto sin explicaciones adicionales:
         symbol: coin.symbol,
         price: coin.price,
         change: coin.change,
-        rsi: coin.rsi,
         ...json,
       });
     } catch (e) {
@@ -78,13 +72,15 @@ Responde SOLO en este formato JSON exacto sin explicaciones adicionales:
         symbol: coin.symbol,
         price: coin.price,
         change: coin.change,
-        rsi: coin.rsi,
-        accion: 'ESPERAR',
-        razon: 'No se pudo analizar en este momento.',
+        operacion: 'LONG',
+        temporalidad: '1H',
         precio_entrada: coin.price,
-        take_profit: coin.price * 1.03,
-        stop_loss: coin.price * 0.97,
+        take_profit: parseFloat((coin.price * 1.03).toFixed(2)),
+        stop_loss: parseFloat((coin.price * 0.97).toFixed(2)),
+        apalancamiento: '10X',
+        riesgo_liquidacion: 30,
         confianza: 50,
+        razon: 'No se pudo analizar en este momento.',
       });
     }
   }

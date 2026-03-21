@@ -33,8 +33,7 @@ async function calcularMACD(symbol) {
       for (let i = 1; i < datos.length; i++) emaVal = datos[i] * k + emaVal * (1 - k);
       return emaVal;
     };
-    const macd = ema(cierres, 12) - ema(cierres, 26);
-    return macd > 0 ? 'alcista' : 'bajista';
+    return ema(cierres, 12) - ema(cierres, 26) > 0 ? 'alcista' : 'bajista';
   } catch (e) { return 'neutral'; }
 }
 
@@ -52,71 +51,55 @@ export async function GET(request) {
   const change = parseFloat(parseFloat(tickerRes.priceChangePercent).toFixed(2));
   const high = parseFloat(parseFloat(tickerRes.highPrice).toFixed(2));
   const low = parseFloat(parseFloat(tickerRes.lowPrice).toFixed(2));
-  const volume = parseFloat(parseFloat(tickerRes.quoteVolume).toFixed(0));
+
+  const operacion = (rsi < 50 && macd === 'bajista') ? 'SHORT' : 'LONG';
+  const take_profit = operacion === 'LONG'
+    ? parseFloat((price * 1.025).toFixed(2))
+    : parseFloat((price * 0.975).toFixed(2));
+  const stop_loss = operacion === 'LONG'
+    ? parseFloat((price * 0.98).toFixed(2))
+    : parseFloat((price * 1.02).toFixed(2));
 
   const chat = await groq.chat.completions.create({
-    messages: [
-      {
-        role: "user",
-        content: `Eres un experto en trading de criptomonedas. Analiza ${symbol}/USDT:
-- Precio actual: $${price}
-- Cambio 24h: ${change}%
-- Máximo 24h: $${high}
-- Mínimo 24h: $${low}
-- Volumen 24h: $${volume}
-- RSI real: ${rsi}
-- MACD: ${macd}
-
-Siempre debes dar una señal LONG o SHORT basada en los indicadores.
-Si RSI < 50 y MACD bajista → SHORT.
-Si RSI > 50 y MACD alcista → LONG.
-Si hay duda → usa el cambio 24h para decidir.
-
-El take_profit debe ser entre 1% y 5% del precio actual.
-El stop_loss debe ser entre 1% y 3% del precio actual.
-El precio_entrada debe ser MUY cercano al precio actual ($${price}).
-
-Responde SOLO en este formato JSON sin texto adicional:
-{
-  "operacion": "LONG" o "SHORT",
-  "temporalidad": "1H" o "4H" o "1D",
-  "precio_entrada": número muy cercano a ${price},
-  "take_profit": número,
-  "stop_loss": número,
-  "apalancamiento": "5X" o "10X" o "20X",
-  "riesgo_liquidacion": número del 1 al 100,
-  "confianza": número del 1 al 100,
-  "razon": "explicación en español de máximo 2 oraciones mencionando RSI y MACD"
-}`,
-      },
-    ],
+    messages: [{
+      role: "user",
+      content: `Analiza ${symbol}/USDT: precio $${price}, cambio ${change}%, RSI ${rsi}, MACD ${macd}, max $${high}, min $${low}. La operacion es ${operacion}. Explica en 2 oraciones en español por qué es ${operacion} mencionando RSI y MACD. Solo devuelve el JSON: {"confianza": número 1-100, "apalancamiento": "5X" o "10X", "riesgo_liquidacion": número 1-100, "temporalidad": "1H" o "4H", "razon": "texto"}`,
+    }],
     model: "llama-3.3-70b-versatile",
-    max_tokens: 250,
+    max_tokens: 150,
   });
 
   try {
     const texto = chat.choices[0].message.content;
     const json = JSON.parse(texto.match(/\{[\s\S]*\}/)[0]);
-    json.precio_entrada = price;
-    json.take_profit = json.operacion === 'LONG'
-      ? parseFloat((price * 1.03).toFixed(2))
-      : parseFloat((price * 0.97).toFixed(2));
-    json.stop_loss = json.operacion === 'LONG'
-      ? parseFloat((price * 0.98).toFixed(2))
-      : parseFloat((price * 1.02).toFixed(2));
-    return Response.json({ symbol, price, change, rsi, macd, ...json });
+    return Response.json({
+      symbol,
+      price,
+      change,
+      rsi,
+      macd,
+      operacion,
+      precio_entrada: price,
+      take_profit,
+      stop_loss,
+      confianza: json.confianza || 65,
+      apalancamiento: json.apalancamiento || '5X',
+      riesgo_liquidacion: json.riesgo_liquidacion || 30,
+      temporalidad: json.temporalidad || '1H',
+      razon: json.razon || 'Señal basada en indicadores técnicos.',
+    });
   } catch (e) {
     return Response.json({
       symbol, price, change, rsi, macd,
-      operacion: change >= 0 ? 'LONG' : 'SHORT',
-      temporalidad: '1H',
+      operacion,
       precio_entrada: price,
-      take_profit: parseFloat((price * 1.03).toFixed(2)),
-      stop_loss: parseFloat((price * 0.98).toFixed(2)),
+      take_profit,
+      stop_loss,
+      confianza: 60,
       apalancamiento: '5X',
       riesgo_liquidacion: 30,
-      confianza: 55,
-      razon: 'Señal basada en tendencia del mercado actual.',
+      temporalidad: '1H',
+      razon: 'Señal basada en RSI y MACD actuales.',
     });
   }
 }

@@ -15,7 +15,7 @@ export default function Grafico({ simbolo }) {
     script.innerHTML = JSON.stringify({
       autosize: true,
       symbol: `BINANCE:${simbolo}USDT`,
-      interval: '60',
+      interval: '1',
       timezone: 'America/Bogota',
       theme: 'dark',
       style: '1',
@@ -23,15 +23,15 @@ export default function Grafico({ simbolo }) {
       hide_top_toolbar: false,
       hide_legend: false,
       save_image: false,
-      calendar: false,
       hide_volume: false,
+      refresh_interval: 10,
     });
 
     containerRef.current.appendChild(script);
   }, [simbolo]);
 
   return (
-    <div ref={containerRef} style={{ height: '400px', width: '100%' }}>
+    <div ref={containerRef} style={{ height: '100%', width: '100%', minHeight: '400px' }}>
       <div style={{ height: '100%', width: '100%' }}></div>
     </div>
   );

@@ -6,12 +6,14 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 async function getPrecio(symbol) {
   try {
-    const res = await fetch(`https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=${symbol}USDT`);
+    const res = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}USDT`);
     const data = await res.json();
     if (data.lastPrice && parseFloat(data.lastPrice) > 0) {
       return {
         price: parseFloat(parseFloat(data.lastPrice).toFixed(2)),
         change: parseFloat(parseFloat(data.priceChangePercent).toFixed(2)),
+        high: parseFloat(parseFloat(data.highPrice).toFixed(2)),
+        low: parseFloat(parseFloat(data.lowPrice).toFixed(2)),
       };
     }
   } catch (e) {}
@@ -24,9 +26,11 @@ async function getPrecio(symbol) {
     return {
       price: parseFloat(data[id].usd.toFixed(2)),
       change: parseFloat(data[id].usd_24h_change.toFixed(2)),
+      high: parseFloat(data[id].usd.toFixed(2)),
+      low: parseFloat(data[id].usd.toFixed(2)),
     };
   } catch (e) {
-    return { price: 0, change: 0 };
+    return { price: 0, change: 0, high: 0, low: 0 };
   }
 }
 
@@ -34,7 +38,7 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const symbol = searchParams.get('symbol') || 'BTC';
 
-  const { price, change } = await getPrecio(symbol);
+  const { price, change, high, low } = await getPrecio(symbol);
 
   if (!price || price === 0) {
     return Response.json({ error: 'No se pudo obtener el precio' }, { status: 500 });
@@ -48,15 +52,16 @@ export async function GET(request) {
   const stop_loss = operacion === 'LONG'
     ? parseFloat((price * 0.98).toFixed(2))
     : parseFloat((price * 1.02).toFixed(2));
-  const liquidacion = operacion === 'LONG'
+  const precio_liquidacion = operacion === 'LONG'
     ? parseFloat((price * 0.95).toFixed(2))
     : parseFloat((price * 1.05).toFixed(2));
+  const rsi = change > 3 ? 72 : change > 1 ? 58 : change < -3 ? 28 : change < -1 ? 42 : 50;
 
   try {
     const chat = await groq.chat.completions.create({
       messages: [{
         role: "user",
-        content: `Analiza ${symbol}/USDT para futuros: precio $${price}, cambio ${change}% en 24h, operacion ${operacion}. Responde SOLO este JSON: {"confianza":75,"riesgo_liquidacion":30,"razon":"max 1 oracion en español"}`,
+        content: `${symbol} $${price} cambio ${change}% operacion ${operacion}. JSON solo: {"confianza":75,"riesgo_liquidacion":30,"razon":"1 oracion en español"}`,
       }],
       model: "llama-3.1-8b-instant",
       max_tokens: 80,
@@ -66,33 +71,29 @@ export async function GET(request) {
     const json = JSON.parse(texto.match(/\{[\s\S]*\}/)[0]);
 
     return Response.json({
-      symbol, price, change, operacion,
+      symbol, price, change, high, low,
+      operacion, apalancamiento,
       precio_entrada: price,
-      take_profit,
-      stop_loss,
-      precio_liquidacion: liquidacion,
-      apalancamiento,
+      take_profit, stop_loss, precio_liquidacion,
       temporalidad: '1H',
-      confianza: json.confianza || 70,
+      confianza: Math.min(Math.max(json.confianza || 70, 50), 95),
       riesgo_liquidacion: json.riesgo_liquidacion || 30,
       razon: json.razon || 'Señal basada en tendencia del mercado.',
       macd: change >= 0 ? 'alcista' : 'bajista',
-      rsi: change > 2 ? 65 : change < -2 ? 35 : 50,
+      rsi,
     });
   } catch (e) {
     return Response.json({
-      symbol, price, change, operacion,
+      symbol, price, change, high, low,
+      operacion, apalancamiento,
       precio_entrada: price,
-      take_profit,
-      stop_loss,
-      precio_liquidacion: liquidacion,
-      apalancamiento,
+      take_profit, stop_loss, precio_liquidacion,
       temporalidad: '1H',
       confianza: 65,
       riesgo_liquidacion: 30,
       razon: 'Señal basada en tendencia del mercado actual.',
       macd: change >= 0 ? 'alcista' : 'bajista',
-      rsi: 50,
+      rsi,
     });
   }
 }

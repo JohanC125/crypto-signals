@@ -27,6 +27,11 @@ export default function Home() {
   const alertaId = useRef(0);
   const alertasEnviadas = useRef({});
   const notificacionPermiso = useRef(false);
+  const operacionesRef = useRef([]);
+
+  useEffect(() => {
+    operacionesRef.current = operacionesAbiertas;
+  }, [operacionesAbiertas]);
 
   useEffect(() => {
     if ('Notification' in window) {
@@ -48,72 +53,74 @@ export default function Home() {
     setTimeout(() => setAlertas(prev => prev.filter(a => a.id !== id)), 15000);
   };
 
-  const fetchPrecios = async () => {
-    try {
-      const resultados = await Promise.all(
-        MONEDAS.map(m => fetch(`/api/precios?symbol=${m.simbolo}`).then(r => r.json()))
-      );
-      const nuevosDatos = resultados.map((d, i) => ({
-        ...MONEDAS[i],
-        precio: d.price || 0,
-        cambio: d.change || 0,
-        high: d.high || 0,
-        low: d.low || 0,
-        volumen: d.volume || 0,
-      }));
+  useEffect(() => {
+    const fetchPrecios = async () => {
+      try {
+        const resultados = await Promise.all(
+          MONEDAS.map(m => fetch(`/api/precios?symbol=${m.simbolo}`).then(r => r.json()))
+        );
+        const nuevosDatos = resultados.map((d, i) => ({
+          ...MONEDAS[i],
+          precio: d.price || 0,
+          cambio: d.change || 0,
+          high: d.high || 0,
+          low: d.low || 0,
+          volumen: d.volume || 0,
+        }));
 
-      setDatos(prev => {
-        const animados = {};
+        setDatos(prev => {
+          const animados = {};
+          nuevosDatos.forEach(m => {
+            const anterior = prev.find(p => p.simbolo === m.simbolo);
+            if (anterior && anterior.precio !== m.precio && m.precio > 0) {
+              animados[m.simbolo] = m.precio > anterior.precio ? 'up' : 'down';
+            }
+          });
+          if (Object.keys(animados).length > 0) {
+            setPreciosAnimados(animados);
+            setTimeout(() => setPreciosAnimados({}), 1000);
+          }
+          return nuevosDatos;
+        });
+
+        setUltimaActualizacion(new Date().toLocaleTimeString());
+
         nuevosDatos.forEach(m => {
-          const anterior = prev.find(p => p.simbolo === m.simbolo);
-          if (anterior && anterior.precio !== m.precio && m.precio > 0) {
-            animados[m.simbolo] = m.precio > anterior.precio ? 'up' : 'down';
-          }
+          operacionesRef.current.forEach(op => {
+            if (op.symbol !== m.simbolo || !m.precio) return;
+            const key = op.id;
+            if (op.tipo === 'LONG') {
+              if (m.precio >= op.take_profit && !alertasEnviadas.current[`${key}-tp`]) {
+                alertasEnviadas.current[`${key}-tp`] = true;
+                agregarAlerta(`✅ CIERRA TU LONG DE ${m.simbolo}\nPrecio: $${m.precio.toLocaleString()} llegó al TP\nBinance: Posiciones → ${m.simbolo}USDT → Cierra al mercado`, 'tp');
+                notificar(`✅ TP alcanzado — ${m.simbolo}`, `Cierra tu LONG. Precio: $${m.precio.toLocaleString()}`);
+              }
+              if (m.precio <= op.stop_loss && !alertasEnviadas.current[`${key}-sl`]) {
+                alertasEnviadas.current[`${key}-sl`] = true;
+                agregarAlerta(`🛑 SAL DE TU LONG DE ${m.simbolo}\nPrecio: $${m.precio.toLocaleString()} tocó el SL\nBinance: Posiciones → ${m.simbolo}USDT → Cierra al mercado`, 'sl');
+                notificar(`🛑 SL activado — ${m.simbolo}`, `Sal de tu LONG. Precio: $${m.precio.toLocaleString()}`);
+              }
+            } else {
+              if (m.precio <= op.take_profit && !alertasEnviadas.current[`${key}-tp`]) {
+                alertasEnviadas.current[`${key}-tp`] = true;
+                agregarAlerta(`✅ CIERRA TU SHORT DE ${m.simbolo}\nPrecio: $${m.precio.toLocaleString()} llegó al TP\nBinance: Posiciones → ${m.simbolo}USDT → Cierra al mercado`, 'tp');
+                notificar(`✅ TP alcanzado — ${m.simbolo}`, `Cierra tu SHORT. Precio: $${m.precio.toLocaleString()}`);
+              }
+              if (m.precio >= op.stop_loss && !alertasEnviadas.current[`${key}-sl`]) {
+                alertasEnviadas.current[`${key}-sl`] = true;
+                agregarAlerta(`🛑 CIERRA TU SHORT DE ${m.simbolo}\nPrecio: $${m.precio.toLocaleString()} tocó el SL\nBinance: Posiciones → ${m.simbolo}USDT → Cierra al mercado`, 'sl');
+                notificar(`🛑 SL activado — ${m.simbolo}`, `Sal de tu SHORT. Precio: $${m.precio.toLocaleString()}`);
+              }
+            }
+          });
         });
-        if (Object.keys(animados).length > 0) {
-          setPreciosAnimados(animados);
-          setTimeout(() => setPreciosAnimados({}), 1000);
-        }
-        return nuevosDatos;
-      });
+      } catch (e) { console.error(e); }
+    };
 
-      setUltimaActualizacion(new Date().toLocaleTimeString());
-
-      nuevosDatos.forEach(m => {
-        operacionesAbiertas.forEach(op => {
-          if (op.symbol !== m.simbolo || !m.precio) return;
-          const key = op.id;
-          if (op.tipo === 'LONG') {
-            if (m.precio >= op.take_profit && !alertasEnviadas.current[`${key}-tp`]) {
-              alertasEnviadas.current[`${key}-tp`] = true;
-              const msg = `✅ CIERRA TU LONG DE ${m.simbolo}\nPrecio actual: $${m.precio.toLocaleString()} llegó al TP\nEn Binance: Posiciones → ${m.simbolo}USDT → Cierra al mercado`;
-              agregarAlerta(msg, 'tp');
-              notificar(`✅ TP alcanzado — ${m.simbolo}`, `Cierra tu LONG. Precio: $${m.precio.toLocaleString()}`);
-            }
-            if (m.precio <= op.stop_loss && !alertasEnviadas.current[`${key}-sl`]) {
-              alertasEnviadas.current[`${key}-sl`] = true;
-              const msg = `🛑 SAL DE TU LONG DE ${m.simbolo}\nPrecio actual: $${m.precio.toLocaleString()} tocó el SL\nEn Binance: Posiciones → ${m.simbolo}USDT → Cierra al mercado`;
-              agregarAlerta(msg, 'sl');
-              notificar(`🛑 SL activado — ${m.simbolo}`, `Sal de tu LONG. Precio: $${m.precio.toLocaleString()}`);
-            }
-          } else {
-            if (m.precio <= op.take_profit && !alertasEnviadas.current[`${key}-tp`]) {
-              alertasEnviadas.current[`${key}-tp`] = true;
-              const msg = `✅ CIERRA TU SHORT DE ${m.simbolo}\nPrecio actual: $${m.precio.toLocaleString()} llegó al TP\nEn Binance: Posiciones → ${m.simbolo}USDT → Cierra al mercado`;
-              agregarAlerta(msg, 'tp');
-              notificar(`✅ TP alcanzado — ${m.simbolo}`, `Cierra tu SHORT. Precio: $${m.precio.toLocaleString()}`);
-            }
-            if (m.precio >= op.stop_loss && !alertasEnviadas.current[`${key}-sl`]) {
-              alertasEnviadas.current[`${key}-sl`] = true;
-              const msg = `🛑 CIERRA TU SHORT DE ${m.simbolo}\nPrecio actual: $${m.precio.toLocaleString()} tocó el SL\nEn Binance: Posiciones → ${m.simbolo}USDT → Cierra al mercado`;
-              agregarAlerta(msg, 'sl');
-              notificar(`🛑 SL activado — ${m.simbolo}`, `Sal de tu SHORT. Precio: $${m.precio.toLocaleString()}`);
-            }
-          }
-        });
-      });
-    } catch (e) { console.error(e); }
-  };
+    fetchPrecios();
+    const interval = setInterval(fetchPrecios, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const analizarTodas = async () => {
     if (analizando) return;
@@ -147,12 +154,6 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    fetchPrecios();
-    const interval = setInterval(fetchPrecios, 5000);
-    return () => clearInterval(interval);
-  }, [operacionesAbiertas]);
-
   const registrarOperacion = () => {
     const sig = senales[monedaSeleccionada];
     if (!sig || !monto) return;
@@ -169,16 +170,16 @@ export default function Home() {
       tiempo: new Date().toLocaleTimeString(),
     };
     setOperacionesAbiertas(prev => [...prev, nueva]);
-    agregarAlerta(`📝 ${sig.operacion} ${monedaSeleccionada} registrado\nMonitoreando TP $${sig.take_profit.toLocaleString()} y SL $${sig.stop_loss.toLocaleString()} en tiempo real`, 'info');
+    agregarAlerta(`📝 ${sig.operacion} ${monedaSeleccionada} registrado\nMonitoreando TP $${sig.take_profit.toLocaleString()} y SL $${sig.stop_loss.toLocaleString()}`, 'info');
     setTabDerecha('posiciones');
     setMonto('');
   };
 
   const cerrarOperacion = (id) => {
-    const op = operacionesAbiertas.find(o => o.id === id);
+    const op = operacionesRef.current.find(o => o.id === id);
     const precioActual = datos.find(d => d.simbolo === op?.symbol)?.precio || 0;
     if (op) {
-      agregarAlerta(`🔒 INSTRUCCIONES DE CIERRE — ${op.tipo} ${op.symbol}\nPrecio actual: $${precioActual.toLocaleString()}\n\nEn Binance Futuros:\n1. Ve a "Posiciones"\n2. Busca ${op.symbol}USDT\n3. Haz clic en "Cerrar"\n4. Selecciona "Al precio de mercado"\n5. Confirma`, 'info');
+      agregarAlerta(`🔒 CIERRE ${op.tipo} ${op.symbol}\nPrecio actual: $${precioActual.toLocaleString()}\n\nEn Binance Futuros:\n1. Ve a "Posiciones"\n2. Busca ${op.symbol}USDT\n3. Clic en "Cerrar"\n4. Precio de mercado\n5. Confirma`, 'info');
     }
     setOperacionesAbiertas(prev => prev.filter(o => o.id !== id));
     delete alertasEnviadas.current[`${id}-tp`];
@@ -195,14 +196,14 @@ export default function Home() {
   return (
     <div style={{ background: '#0b0e11', minHeight: '100vh', fontFamily: 'sans-serif', display: 'flex', flexDirection: 'column' }}>
       <style>{`
-        @keyframes fadeDown { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes fadeDown { from{opacity:0;transform:translateY(-8px);} to{opacity:1;transform:translateY(0);} }
         @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
         @keyframes spin { from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
         @keyframes priceUp { 0%{background:#0ecb8133;} 100%{background:transparent;} }
         @keyframes priceDown { 0%{background:#f6465d33;} 100%{background:transparent;} }
-        .fade-down { animation: fadeDown 0.3s ease; }
-        .price-up { animation: priceUp 1s ease; }
-        .price-down { animation: priceDown 1s ease; }
+        .fade-down{animation:fadeDown 0.3s ease;}
+        .price-up{animation:priceUp 1s ease;}
+        .price-down{animation:priceDown 1s ease;}
         ::-webkit-scrollbar{width:3px;height:3px;}
         ::-webkit-scrollbar-track{background:#0b0e11;}
         ::-webkit-scrollbar-thumb{background:#2b2f36;border-radius:2px;}
@@ -214,10 +215,10 @@ export default function Home() {
       <div style={{ position: 'fixed', top: '64px', right: '14px', zIndex: 1000, display: 'flex', flexDirection: 'column', gap: '6px', maxWidth: '320px', width: '100%' }}>
         {alertas.map(a => (
           <div key={a.id} onClick={() => setAlertas(prev => prev.filter(al => al.id !== a.id))} className="fade-down"
-            style={{ background: a.tipo === 'tp' ? '#0a2218' : a.tipo === 'sl' ? '#220a0a' : a.tipo === 'long' ? '#0a2218' : a.tipo === 'short' ? '#220a0a' : '#161b22', border: `1px solid ${a.tipo === 'tp' || a.tipo === 'long' ? '#0ecb81' : a.tipo === 'sl' || a.tipo === 'short' ? '#f6465d' : '#A855F7'}`, borderRadius: '10px', padding: '10px 12px', color: '#fff', fontSize: '11px', lineHeight: '1.6', boxShadow: '0 8px 24px rgba(0,0,0,0.7)', cursor: 'pointer', whiteSpace: 'pre-line' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            style={{ background: a.tipo === 'tp' ? '#0a2218' : a.tipo === 'sl' ? '#220a0a' : a.tipo === 'long' ? '#0a2218' : a.tipo === 'short' ? '#220a0a' : '#161b22', border: `1px solid ${a.tipo === 'tp' || a.tipo === 'long' ? '#0ecb81' : a.tipo === 'sl' || a.tipo === 'short' ? '#f6465d' : '#9333EA'}`, borderRadius: '10px', padding: '10px 12px', color: '#fff', fontSize: '11px', lineHeight: '1.6', boxShadow: '0 8px 24px rgba(0,0,0,0.7)', cursor: 'pointer', whiteSpace: 'pre-line' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>{a.mensaje}</span>
-              <span style={{ color: '#5d6673', fontSize: '10px', marginLeft: '8px', flexShrink: 0 }}>✕</span>
+              <span style={{ color: '#5d6673', fontSize: '10px', marginLeft: '8px' }}>✕</span>
             </div>
           </div>
         ))}
@@ -234,7 +235,6 @@ export default function Home() {
             <div style={{ color: '#4a3f6b', fontSize: '8px', letterSpacing: '1px' }}>FUTUROS · by Johan Caro</div>
           </div>
         </div>
-
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {analizando ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px', background: '#9333EA22', border: '1px solid #9333EA44', borderRadius: '6px', padding: '3px 8px' }}>
@@ -267,17 +267,18 @@ export default function Home() {
           const sel = monedaSeleccionada === m.simbolo;
           const animDir = preciosAnimados[m.simbolo];
           return (
-            <button key={m.simbolo} onClick={() => setMonedaSeleccionada(m.simbolo)} className={animDir === 'up' ? 'price-up' : animDir === 'down' ? 'price-down' : ''}
+            <button key={m.simbolo} onClick={() => setMonedaSeleccionada(m.simbolo)}
+              className={animDir === 'up' ? 'price-up' : animDir === 'down' ? 'price-down' : ''}
               style={{ background: 'none', border: 'none', borderBottom: sel ? `2px solid ${m.color}` : '2px solid transparent', padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', transition: 'all 0.15s', opacity: sel ? 1 : 0.7 }}>
               <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: m.color + '22', border: `1px solid ${m.color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: '700', color: m.color }}>{m.icono}</div>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <span style={{ color: sel ? '#fff' : '#848e9c', fontSize: '11px', fontWeight: '600' }}>{m.simbolo}</span>
                   {s && <span style={{ background: colorOp(s.operacion) + '22', color: colorOp(s.operacion), padding: '1px 4px', borderRadius: '2px', fontSize: '8px', fontWeight: '700' }}>{s.operacion}</span>}
-                  {opAbierta && <div style={{ width: '4px', height: '4px', background: '#f0b90b', borderRadius: '50%', boxShadow: '0 0 3px #f0b90b', animation: 'pulse 1.5s infinite' }}></div>}
+                  {opAbierta && <div style={{ width: '4px', height: '4px', background: '#f0b90b', borderRadius: '50%', animation: 'pulse 1.5s infinite' }}></div>}
                 </div>
                 <div style={{ color: m.cambio >= 0 ? '#0ecb81' : '#f6465d', fontSize: '9px' }}>
-                  ${m.precio > 0 ? m.precio.toLocaleString() : '...'} <span style={{ opacity: 0.7 }}>{m.cambio >= 0 ? '+' : ''}{m.cambio}%</span>
+                  {m.precio > 0 ? `$${m.precio.toLocaleString()}` : '...'} <span style={{ opacity: 0.7 }}>{m.cambio >= 0 ? '+' : ''}{m.cambio}%</span>
                 </div>
               </div>
             </button>
@@ -297,7 +298,8 @@ export default function Home() {
                 <span style={{ color: '#fff', fontWeight: '700', fontSize: '13px' }}>{monedaSeleccionada}/USDT Perp</span>
                 {sig && <span style={{ background: colorOp(sig.operacion) + '22', color: colorOp(sig.operacion), padding: '1px 6px', borderRadius: '3px', fontSize: '9px', fontWeight: '700', border: `1px solid ${colorOp(sig.operacion)}33` }}>{sig.operacion}</span>}
               </div>
-              <div className={preciosAnimados[monedaSeleccionada] === 'up' ? 'price-up' : preciosAnimados[monedaSeleccionada] === 'down' ? 'price-down' : ''} style={{ color: '#fff', fontSize: '22px', fontWeight: '700' }}>
+              <div className={preciosAnimados[monedaSeleccionada] === 'up' ? 'price-up' : preciosAnimados[monedaSeleccionada] === 'down' ? 'price-down' : ''}
+                style={{ color: '#fff', fontSize: '22px', fontWeight: '700' }}>
                 {monedaActual?.precio > 0 ? `$${monedaActual.precio.toLocaleString()}` : '...'}
               </div>
             </div>
@@ -334,21 +336,21 @@ export default function Home() {
                   const pnl = precioActual > 0 ? (op.tipo === 'LONG'
                     ? ((precioActual - op.entrada) / op.entrada * 100 * apalNum).toFixed(2)
                     : ((op.entrada - precioActual) / op.entrada * 100 * apalNum).toFixed(2)) : '0.00';
-                  const progreso = op.tipo === 'LONG'
+                  const progreso = precioActual > 0 ? (op.tipo === 'LONG'
                     ? Math.min(Math.max(((precioActual - op.entrada) / (op.take_profit - op.entrada)) * 100, 0), 100)
-                    : Math.min(Math.max(((op.entrada - precioActual) / (op.entrada - op.take_profit)) * 100, 0), 100);
+                    : Math.min(Math.max(((op.entrada - precioActual) / (op.entrada - op.take_profit)) * 100, 0), 100)) : 0;
                   return (
                     <div key={op.id} style={{ background: '#161b22', borderRadius: '6px', padding: '7px 10px', border: `1px solid ${parseFloat(pnl) >= 0 ? '#0ecb8122' : '#f6465d22'}` }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                         <span style={{ color: colorOp(op.tipo), fontWeight: '700', fontSize: '11px' }}>{op.tipo === 'LONG' ? '🟢' : '🔴'} {op.tipo} {op.symbol} · {op.apalancamiento}</span>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                           <span style={{ color: parseFloat(pnl) >= 0 ? '#0ecb81' : '#f6465d', fontWeight: '700', fontSize: '12px' }}>{parseFloat(pnl) >= 0 ? '+' : ''}{pnl}%</span>
-                          <button onClick={() => cerrarOperacion(op.id)} style={{ background: 'none', border: '1px solid #f6465d33', borderRadius: '3px', padding: '1px 6px', color: '#f6465d', fontSize: '9px', cursor: 'pointer' }}>✕ Cerrar</button>
+                          <button onClick={() => cerrarOperacion(op.id)} style={{ background: 'none', border: '1px solid #f6465d33', borderRadius: '3px', padding: '1px 6px', color: '#f6465d', fontSize: '9px', cursor: 'pointer' }}>✕</button>
                         </div>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
                         <span style={{ color: '#f6465d', fontSize: '8px' }}>SL ${op.stop_loss.toLocaleString()}</span>
-                        <span style={{ color: '#848e9c', fontSize: '8px' }}>${precioActual.toLocaleString()}</span>
+                        <span style={{ color: '#848e9c', fontSize: '8px' }}>{precioActual > 0 ? `$${precioActual.toLocaleString()}` : '...'}</span>
                         <span style={{ color: '#0ecb81', fontSize: '8px' }}>TP ${op.take_profit.toLocaleString()}</span>
                       </div>
                       <div style={{ background: '#0b0e11', borderRadius: '2px', height: '3px' }}>
@@ -386,7 +388,7 @@ export default function Home() {
                   <div style={{ textAlign: 'center', padding: '40px 20px' }}>
                     <div style={{ width: '28px', height: '28px', border: '2px solid #9333EA', borderTop: '2px solid transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 10px' }}></div>
                     <div style={{ color: '#9333EA', fontSize: '12px', fontWeight: '600' }}>Analizando mercado...</div>
-                    <div style={{ color: '#5d6673', fontSize: '10px', marginTop: '4px' }}>Esto ocurre automáticamente</div>
+                    <div style={{ color: '#5d6673', fontSize: '10px', marginTop: '4px' }}>Automático — no necesitas hacer nada</div>
                   </div>
                 ) : sig ? (
                   <>
@@ -403,7 +405,7 @@ export default function Home() {
                       <div style={{ color: '#7a8490', fontSize: '11px', lineHeight: '1.5', borderTop: `1px solid ${colorOp(sig.operacion)}22`, paddingTop: '8px' }}>{sig.razon}</div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '6px' }}>
                       {[
                         { label: 'RSI', valor: sig.rsi, color: sig.rsi < 30 ? '#0ecb81' : sig.rsi > 70 ? '#f6465d' : '#c0c6cf' },
                         { label: 'MACD', valor: sig.macd === 'alcista' ? 'ALC' : 'BAJ', color: sig.macd === 'alcista' ? '#0ecb81' : '#f6465d' },
@@ -438,7 +440,7 @@ export default function Home() {
 
                     <div style={{ background: '#131823', borderRadius: '8px', padding: '10px 12px', border: '1px solid #f6465d22', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
-                        <div style={{ color: '#5d6673', fontSize: '9px', marginBottom: '2px' }}>☠️ PRECIO DE LIQUIDACIÓN</div>
+                        <div style={{ color: '#5d6673', fontSize: '9px', marginBottom: '2px' }}>☠️ PRECIO LIQUIDACIÓN</div>
                         <div style={{ color: '#f6465d', fontWeight: '700', fontSize: '16px' }}>${sig.precio_liquidacion?.toLocaleString()}</div>
                         <div style={{ color: '#3d4450', fontSize: '8px' }}>No cruces este nivel</div>
                       </div>
@@ -462,8 +464,8 @@ export default function Home() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {sig ? (
                   <>
-                    <div style={{ background: bgOp(sig.operacion), border: `1px solid ${colorOp(sig.operacion)}33`, borderRadius: '8px', padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ color: colorOp(sig.operacion), fontWeight: '700', fontSize: '13px' }}>{sig.operacion === 'LONG' ? '🟢 LONG' : '🔴 SHORT'} — {monedaSeleccionada}/USDT</span>
+                    <div style={{ background: bgOp(sig.operacion), border: `1px solid ${colorOp(sig.operacion)}33`, borderRadius: '8px', padding: '10px 12px', display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: colorOp(sig.operacion), fontWeight: '700', fontSize: '13px' }}>{sig.operacion === 'LONG' ? '🟢 LONG' : '🔴 SHORT'} — {monedaSeleccionada}</span>
                       <span style={{ color: sig.confianza >= 70 ? '#0ecb81' : '#f0b90b', fontWeight: '700' }}>{sig.confianza}%</span>
                     </div>
 
@@ -491,7 +493,7 @@ export default function Home() {
                       <div style={{ background: '#161b22', border: '1px solid #1e2329', borderRadius: '8px', padding: '10px 12px', display: 'flex', gap: '8px', alignItems: 'center' }}>
                         <span style={{ color: '#5d6673' }}>$</span>
                         <input type="number" value={monto} onChange={e => setMonto(e.target.value)} placeholder="Ej: 10"
-                          style={{ background: 'none', border: 'none', color: '#fff', fontSize: '16px', outline: 'none', flex: 1, width: '100%' }} />
+                          style={{ background: 'none', border: 'none', color: '#fff', fontSize: '16px', outline: 'none', flex: 1 }} />
                         <span style={{ color: '#5d6673', fontSize: '12px' }}>USDT</span>
                       </div>
                       {monto && sig?.apalancamiento && (
@@ -509,7 +511,7 @@ export default function Home() {
                     )}
                   </>
                 ) : (
-                  <div style={{ textAlign: 'center', padding: '30px 20px' }}>
+                  <div style={{ textAlign: 'center', padding: '30px' }}>
                     <div style={{ width: '24px', height: '24px', border: '2px solid #9333EA', borderTop: '2px solid transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 10px' }}></div>
                     <div style={{ color: '#9333EA', fontSize: '12px' }}>Analizando automáticamente...</div>
                   </div>
@@ -540,9 +542,9 @@ export default function Home() {
                       ? ((precioActual - op.entrada) / op.entrada * 100 * apalNum).toFixed(2)
                       : ((op.entrada - precioActual) / op.entrada * 100 * apalNum).toFixed(2)) : '0.00';
                     const pnlUsdt = ((parseFloat(pnl) / 100) * op.monto).toFixed(2);
-                    const progreso = op.tipo === 'LONG'
+                    const progreso = precioActual > 0 ? (op.tipo === 'LONG'
                       ? Math.min(Math.max(((precioActual - op.entrada) / (op.take_profit - op.entrada)) * 100, 0), 100)
-                      : Math.min(Math.max(((op.entrada - precioActual) / (op.entrada - op.take_profit)) * 100, 0), 100);
+                      : Math.min(Math.max(((op.entrada - precioActual) / (op.entrada - op.take_profit)) * 100, 0), 100)) : 0;
                     return (
                       <div key={op.id} className="fade-down" style={{ background: '#161b22', borderRadius: '10px', border: `1px solid ${parseFloat(pnl) >= 0 ? '#0ecb8122' : '#f6465d22'}`, overflow: 'hidden' }}>
                         <div style={{ background: parseFloat(pnl) >= 0 ? '#0a1f12' : '#1f0a0a', padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -559,8 +561,8 @@ export default function Home() {
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '5px' }}>
                             {[
                               { label: 'Entrada', valor: `$${op.entrada.toLocaleString()}`, color: '#3b82f6' },
-                              { label: 'Margen', valor: `$${op.monto}`, color: '#c0c6cf' },
-                              { label: 'Posición', valor: `$${(op.monto * parseInt(op.apalancamiento)).toLocaleString()}`, color: '#F3BA2F' },
+                              { label: 'Actual', valor: precioActual > 0 ? `$${precioActual.toLocaleString()}` : '...', color: '#fff' },
+                              { label: 'Margen', valor: `$${op.monto}`, color: '#F3BA2F' },
                             ].map(item => (
                               <div key={item.label} style={{ background: '#0b0e11', borderRadius: '5px', padding: '5px 6px', textAlign: 'center' }}>
                                 <div style={{ color: '#5d6673', fontSize: '8px', marginBottom: '1px' }}>{item.label}</div>
@@ -568,12 +570,12 @@ export default function Home() {
                               </div>
                             ))}
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                             <span style={{ color: '#f6465d', fontSize: '9px' }}>SL ${op.stop_loss.toLocaleString()}</span>
-                            <span style={{ color: '#848e9c', fontSize: '9px', fontWeight: '600' }}>Actual ${precioActual.toLocaleString()}</span>
+                            <span style={{ color: '#848e9c', fontSize: '9px' }}>{precioActual > 0 ? `$${precioActual.toLocaleString()}` : '...'}</span>
                             <span style={{ color: '#0ecb81', fontSize: '9px' }}>TP ${op.take_profit.toLocaleString()}</span>
                           </div>
-                          <div style={{ background: '#0b0e11', borderRadius: '3px', height: '5px', position: 'relative' }}>
+                          <div style={{ background: '#0b0e11', borderRadius: '3px', height: '5px' }}>
                             <div style={{ background: parseFloat(pnl) >= 0 ? '#0ecb81' : '#f6465d', height: '5px', borderRadius: '3px', width: `${progreso}%`, transition: 'width 0.5s' }}></div>
                           </div>
                           <div style={{ color: '#5d6673', fontSize: '9px', textAlign: 'center' }}>{progreso.toFixed(1)}% hacia el objetivo</div>
